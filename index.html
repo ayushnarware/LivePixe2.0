@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LivePixe | Stock Engine</title>
+    <link rel="stylesheet" href="./assets/CSS/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body>
+
+    <header class="navbar" id="navbar">
+        <div class="nav-left">
+            <button class="nav-icon mobile-only" id="mobile-menu-btn" title="Menu">
+                <i class="ph-bold ph-list"></i>
+            </button>
+            
+            <a href="#" class="logo" onclick="location.reload()">
+                <div class="logo-icon">
+                    <img src="https://ayushnarware.github.io/LivePixe/assets/img/logo.jpg" alt="Logo">
+                </div>
+                <span class="logo-text">LivePixe</span>
+            </a>
+        </div>
+
+        <div class="nav-center desktop-only">
+            <div class="type-switcher">
+                <button class="filter-tab active" onclick="switchTab('photos')">Photos</button>
+                <button class="filter-tab" onclick="switchTab('videos')">Videos</button>
+            </div>
+
+            <div class="search-wrapper">
+                <i class="ph-bold ph-magnifying-glass search-icon"></i>
+                <input type="text" id="nav-search-input" placeholder="Search...">
+            </div>
+
+            <div class="filters-inline">
+                <select class="custom-select" id="orientation-filter" onchange="applyFilters()">
+                    <option value="">Orientation</option>
+                    <option value="landscape">Landscape</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="square">Square</option>
+                </select>
+
+                <select class="custom-select" id="color-filter" onchange="filterColor(this.value)">
+                    <option value="">Color</option>
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
+                    <option value="red">Red</option>
+                    <option value="yellow">Yellow</option>
+                    <option value="blue">Blue</option>
+                    <option value="green">Green</option>
+                    <option value="orange">Orange</option>
+                    <option value="purple">Purple</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="nav-right">
+            <button class="nav-icon mobile-only" id="mobile-search-toggle" title="Search">
+                <i class="ph-bold ph-magnifying-glass"></i>
+            </button>
+
+            <button class="nav-icon" id="theme-toggle" title="Switch Theme">
+                <i class="ph-bold ph-moon"></i>
+            </button>
+            
+            <button class="nav-icon" id="saved-toggle" title="Saved Items">
+                <i class="ph-fill ph-bookmark-simple"></i>
+                <span class="badge" id="saved-badge">0</span>
+            </button>
+            
+            <button class="btn-login desktop-only">Login</button>
+        </div>
+    </header>
+
+    <div class="drawer-overlay" id="overlay"></div>
+
+    <aside class="drawer" id="drawer">
+        <div class="drawer-header">
+            <h3><i class="ph-fill ph-bookmark-simple" style="color:var(--primary)"></i> Saved Items</h3>
+            <button class="close-drawer"><i class="ph-bold ph-x"></i></button>
+        </div>
+        <div class="drawer-content" id="drawer-list">
+            </div>
+        <div class="drawer-footer">
+            <button class="btn-outline" onclick="clearSaved()">Clear All</button>
+        </div>
+    </aside>
+
+    <aside class="drawer left-drawer" id="mobile-menu">
+        <div class="drawer-header">
+            <h3>Menu</h3>
+            <button class="close-menu"><i class="ph-bold ph-x"></i></button>
+        </div>
+        <div class="drawer-content">
+            <div class="mobile-nav-section">
+                <h4>Browse</h4>
+                <div class="chips-vertical">
+                    <button class="filter-tab mobile-tab active" onclick="switchTab('photos'); closeMobileMenu()">Photos</button>
+                    <button class="filter-tab mobile-tab" onclick="switchTab('videos'); closeMobileMenu()">Videos</button>
+                </div>
+            </div>
+            
+            <div class="mobile-nav-section">
+                <h4>Filters</h4>
+                <label>Orientation</label>
+                <select class="custom-select mobile-select" onchange="document.getElementById('orientation-filter').value=this.value; applyFilters(); closeMobileMenu()">
+                    <option value="">Any Orientation</option>
+                    <option value="landscape">Landscape</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="square">Square</option>
+                </select>
+
+                <label>Color</label>
+                <select class="custom-select mobile-select" onchange="document.getElementById('color-filter').value=this.value; filterColor(this.value); closeMobileMenu()">
+                    <option value="">Any Color</option>
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
+                    <option value="red">Red</option>
+                    <option value="yellow">Yellow</option>
+                    <option value="blue">Blue</option>
+                    <option value="green">Green</option>
+                </select>
+            </div>
+        </div>
+    </aside>
+
+    <section class="hero">
+        <div class="hero-bg" id="hero-bg"></div>
+        <div class="hero-content">
+            <span class="status-pill">✨ New: 4K Videos Added</span>
+            <h1>The best free stock photos & videos.</h1>
+
+            <div class="mobile-search-container">
+                <input type="text" id="hero-search-input" placeholder="Search high-resolution images...">
+                <button onclick="triggerHeroSearch()"><i class="ph-bold ph-magnifying-glass"></i></button>
+            </div>
+
+            <div class="tags-scroller">
+                <span>Trending:</span>
+                <div class="chips">
+                    <button onclick="handleSearch('Nature')">Nature</button>
+                    <button onclick="handleSearch('Technology')">Technology</button>
+                    <button onclick="handleSearch('Dark Mood')">Dark</button>
+                    <button onclick="handleSearch('Abstract')">Abstract</button>
+                    <button onclick="handleSearch('India')">India</button>
+                    <button onclick="handleSearch('Wallpapers')">Wallpapers</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <main class="gallery-wrapper">
+        <h2 class="section-title" id="gallery-title">Curated For You</h2>
+        
+        <div class="masonry-grid" id="gallery-grid"></div>
+
+        <div id="loader" class="loader">
+            <div class="spinner"></div>
+            <p>Loading content...</p>
+        </div>
+    </main>
+
+    <div id="toast" class="toast">Notification</div>
+    <button id="back-top"><i class="ph-bold ph-arrow-up"></i></button>
+
+    <div id="modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+
+            <div class="modal-body">
+                <div class="modal-media">
+                    <img id="modal-img" src="" alt="Preview">
+                    <video id="modal-video" controls hidden></video>
+                </div>
+
+                <div class="modal-info">
+                    <div class="user-profile">
+                        <div id="m-avatar" class="u-avatar">U</div>
+                        <div>
+                            <h3 id="m-user">User Name</h3>
+                            <small id="m-author-label">Photographer</small>
+                        </div>
+                    </div>
+                    
+                    <div class="image-details-text">
+                        <h4 id="m-title">Image Title</h4>
+                        <p id="m-desc" class="text-muted">Description goes here.</p>
+                    </div>
+
+                    <div class="actions">
+                        <button id="dl-btn" class="btn-primary">
+                            <i class="ph-bold ph-download-simple"></i> Download
+                        </button>
+                        <button class="btn-secondary">
+                            <i class="ph-bold ph-share-network"></i> Share
+                        </button>
+                    </div>
+
+                    <div class="section-title">Tags</div>
+                    <div id="m-tags" class="tags-cloud"></div>
+                </div>
+            </div>
+
+            <div class="similar-section">
+                <h3>Similar Images</h3>
+                <div id="similar-grid" class="similar-grid">
+                    <p>Loading similar photos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="./assets/Js/script.js"></script>
+</body>
+</html>
