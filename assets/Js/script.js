@@ -1,19 +1,33 @@
 /**
  * PixelPro Ultimate - script.js
- * * NOTE ON CONSOLE WARNINGS:
- * 1. "Tracking Prevention blocked access": This is a browser feature (Edge/Chrome) blocking third-party storage trackers.
- * It is NOT an error in your code. It's safe to ignore for this project.
- * 2. "[Intervention] Images loaded lazily": This confirms lazy loading is working. browsers defer loading images
- * that are off-screen to save bandwidth. This is a GOOD performance feature.
+ * Updated with Smart Proxy Failover Logic
  */
 
 // --- CONFIGURATION ---
 const API_KEY = 'FdexWHTC26hHcrlvTj2gKYzQ5Lx3wr230lyFIJXaOfT7BqvZhtGhRNOl';
 
-const BASE_URL = 'https://proxy.corsfix.com/?https://api.pexels.com';
+// Ye function decide karta hai ki kaunsa URL use karna hai
+function getUrlsToTry(endpoint, queryString) {
+    const targetUrl = `https://api.pexels.com${endpoint}${queryString}`;
 
-// console.log("Using API Key:", API_KEY); 
-// console.log("Using Base URL:", BASE_URL);
+    // 1. Agar Localhost hai toh Direct URL bhejo (Browser Extension ON rakhna zaroori hai)
+    if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+        return [targetUrl];
+    }
+
+    // 2. Agar Live Server (GitHub Pages) hai toh 3 Backup Proxies try karo
+    return [
+        // Priority 1: Corsfix (Best for APIs)
+        `https://proxy.corsfix.com/?${targetUrl}`,
+        
+        // Priority 2: CorsProxy.io (Backup)
+        `https://corsproxy.io/?url=${targetUrl}`,
+        
+        // Priority 3: ThingProxy (Last Resort)
+        `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+    ];
+}
+
 const state = {
     page: 1,
     query: 'India',
@@ -22,7 +36,6 @@ const state = {
     hasMore: true,
     orientation: '',
     color: '',
-    // Renamed from bookmarks to savedItems for clarity ("Like" -> "Save")
     savedItems: JSON.parse(localStorage.getItem('pixelpro_saved')) || []
 };
 
@@ -85,7 +98,7 @@ document.getElementById('theme-toggle').onclick = () => {
     localStorage.setItem('pixelpro_theme', next);
 };
 
-// --- API LOGIC ---
+// --- API LOGIC (UPDATED WITH BACKUP PROXIES) ---
 async function fetchContent(reset = false) {
     if (state.loading) return;
     state.loading = true;
@@ -99,28 +112,54 @@ async function fetchContent(reset = false) {
         state.hasMore = true;
     }
 
-    const params = `&page=${state.page}&per_page=15`;
-    const filters = `${state.orientation ? '&orientation='+state.orientation : ''}${state.color ? '&color='+state.color : ''}`;
+    // URL Construction
+    const params = `?query=${state.query}&page=${state.page}&per_page=15` +
+                   `${state.orientation ? '&orientation='+state.orientation : ''}` +
+                   `${state.color ? '&color='+state.color : ''}`;
+    
     const endpoint = state.type === 'photos' ? '/v1/search' : '/videos/search';
-    const url = `${BASE_URL}${endpoint}?query=${state.query}${params}${filters}`;
+    
+    // Smart Logic: Get list of URLs to try
+    const urls = getUrlsToTry(endpoint, params);
+    
+    let success = false;
 
-    try {
-        const res = await fetch(url, { headers: { Authorization: API_KEY } });
-        const data = await res.json();
-        const items = data.photos || data.videos || [];
-        
-        if (items.length === 0) {
-            state.hasMore = false;
-        } else {
-            renderItems(items);
-            state.page++;
+    // Loop through proxies until one works
+    for (const url of urls) {
+        try {
+            console.log(`Trying Fetch: ${url}`); 
+            
+            const res = await fetch(url, { 
+                headers: { Authorization: API_KEY } 
+            });
+
+            if (!res.ok) throw new Error(`Status: ${res.status}`);
+
+            const data = await res.json();
+            const items = data.photos || data.videos || [];
+            
+            if (items.length === 0) {
+                state.hasMore = false;
+            } else {
+                renderItems(items);
+                state.page++;
+            }
+            
+            success = true; 
+            break; // Data mil gaya, loop roko!
+
+        } catch (err) {
+            console.warn(`Failed URL: ${url}`, err);
         }
-    } catch (err) {
-        console.error("API Error:", err);
-    } finally {
-        state.loading = false;
-        if(loader) loader.classList.remove('active');
     }
+
+    if (!success) {
+        console.error("All proxies failed.");
+        showToast("Error loading content. Please refresh.");
+    }
+
+    state.loading = false;
+    if(loader) loader.classList.remove('active');
 }
 
 // --- RENDER ITEMS ---
@@ -136,10 +175,8 @@ function renderItems(items) {
         
         const imgUrl = isVideo ? item.image : item.src.large;
         const dlLink = isVideo ? item.video_files[0].link : item.src.original;
-        // Determine user/creator name safely
         const creatorName = (item.user && item.user.name) || item.photographer;
 
-        // FIXED: Removed inline onclick="openModalById(...)". Now handling click via EventListener below.
         card.innerHTML = `
             <div style="background-color:${item.avg_color || '#333'}; height:100%;">
                 <img src="${imgUrl}" loading="lazy" alt="${item.alt || 'Stock Media'}">
@@ -158,25 +195,20 @@ function renderItems(items) {
             </div>
         `;
 
-        // FIXED: Image Click -> Details Logic
-        // We attach the listener to the overlay. If the user didn't click a button, open modal.
         card.querySelector('.card-overlay').addEventListener('click', (e) => {
             if(!e.target.closest('button')) {
                 openModal(item);
             }
         });
 
-        // Download Click
         card.querySelector('.download-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             forceDownload(dlLink, `livepixe-${item.id}.${isVideo ? 'mp4' : 'jpeg'}`);
         });
 
-        // Save (Like) Click
         card.querySelector('.save-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSave(item.id, imgUrl, state.type, creatorName);
-            // Refresh icon immediately
             const iconClass = isSaved(item.id) ? 'ph-fill ph-bookmark-simple' : 'ph-bold ph-bookmark-simple';
             e.currentTarget.innerHTML = `<i class="${iconClass}"></i>`;
         });
@@ -207,19 +239,16 @@ async function forceDownload(url, filename) {
     }
 }
 
-// --- MODAL LOGIC (FIXED) ---
+// --- MODAL LOGIC ---
 function openModal(item) {
     const modal = document.getElementById('modal');
     const isVideo = state.type === 'videos';
     const img = document.getElementById('modal-img');
     const vid = document.getElementById('modal-video');
     
-    // Reset Media
     img.hidden = false; vid.hidden = true; vid.pause();
 
-    // Data handling
     const dlLink = isVideo ? item.video_files[0].link : item.src.original;
-    // FIXED: Safe property access. If item.user is undefined, fallback to item.photographer
     const creatorName = (item.user && item.user.name) || item.photographer; 
 
     if(isVideo) {
@@ -229,19 +258,16 @@ function openModal(item) {
         img.src = item.src.large2x;
     }
 
-    // Populate UI
     document.getElementById('m-user').innerText = creatorName;
     document.getElementById('m-author-label').innerText = isVideo ? 'Video Creator' : 'Photographer';
     document.getElementById('m-title').innerText = item.alt || "Untitled Artwork";
     document.getElementById('m-desc').innerText = item.alt ? `A stunning high-quality shot of ${item.alt}.` : "No specific description provided.";
     
-    // Download Button clone to remove old listeners
     const dlBtn = document.getElementById('dl-btn');
     const newDlBtn = dlBtn.cloneNode(true);
     dlBtn.parentNode.replaceChild(newDlBtn, dlBtn);
     newDlBtn.addEventListener('click', () => forceDownload(dlLink, `livepixe-${item.id}`));
 
-    // Generate Tags
     const tagsDiv = document.getElementById('m-tags');
     tagsDiv.innerHTML = '';
     const tagText = item.alt || "Stock, Creative, Design";
@@ -255,7 +281,6 @@ function openModal(item) {
         tagsDiv.appendChild(span);
     });
 
-    // Similar Images
     const searchTag = tagsArray[0] || state.query;
     fetchSimilar(searchTag);
 
@@ -274,7 +299,13 @@ async function fetchSimilar(query) {
     grid.innerHTML = '<p style="grid-column:1/-1; text-align:center;">Finding related matches...</p>';
     
     try {
-        const res = await fetch(`${BASE_URL}/v1/search?query=${query}&per_page=6`, { headers: {Authorization: API_KEY} });
+        const url = `${BASE_URL}/v1/search?query=${query}&per_page=6`;
+        // Handle local vs proxy for similar images too
+        const finalUrl = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') 
+            ? url 
+            : `https://proxy.corsfix.com/?${url}`;
+
+        const res = await fetch(finalUrl, { headers: {Authorization: API_KEY} });
         const data = await res.json();
         grid.innerHTML = '';
         
@@ -299,7 +330,6 @@ async function fetchSimilar(query) {
 function performSearch(query) {
     if (!query) return;
     state.query = query;
-    // state.type is updated by switchTab
     document.getElementById('gallery-title').innerText = `Results for "${query}"`;
     fetchContent(true);
 }
@@ -316,7 +346,6 @@ function triggerHeroSearch() {
 function switchTab(type) {
     state.type = type;
     document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-    // Update both desktop and mobile tabs
     const tabs = Array.from(document.querySelectorAll('.filter-tab'));
     tabs.filter(t => t.innerText.toLowerCase().includes(type)).forEach(t => t.classList.add('active'));
     
@@ -359,7 +388,7 @@ document.querySelectorAll('.close-drawer, .close-menu').forEach(b => {
     b.onclick = document.getElementById('overlay').onclick;
 });
 
-// --- SAVED ITEMS LOGIC (Like -> Save) ---
+// --- SAVED ITEMS LOGIC ---
 function toggleSave(id, img, type, creator) {
     const idx = state.savedItems.findIndex(b => b.id === id);
     if (idx > -1) {
@@ -372,7 +401,6 @@ function toggleSave(id, img, type, creator) {
     
     localStorage.setItem('pixelpro_saved', JSON.stringify(state.savedItems));
     updateSavedBadge();
-    // If drawer is open, re-render it
     if(document.getElementById('drawer').classList.contains('open')) {
         renderSavedDrawer();
     }
@@ -408,18 +436,12 @@ function renderSavedDrawer() {
 }
 
 function removeFromSaved(id) {
-    // Remove specific item by ID
     const idx = state.savedItems.findIndex(b => b.id === id);
     if(idx > -1) {
         state.savedItems.splice(idx, 1);
         localStorage.setItem('pixelpro_saved', JSON.stringify(state.savedItems));
         updateSavedBadge();
-        renderSavedDrawer(); // Re-render the drawer instantly
-        
-        // Also update the icon in the grid if that card is visible
-        const grid = document.getElementById('gallery-grid');
-        // We can't easily find the specific DOM element by ID without re-rendering, 
-        // but for now, the user will see it updated if they scroll or refresh.
+        renderSavedDrawer();
         showToast('Removed');
     }
 }
