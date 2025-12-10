@@ -8,7 +8,7 @@
  */
 
 // --- CONFIGURATION ---
-const API_KEY = 'CDeNjkdbeEq8L4LDFZdU32Zwq1sO4YrMrzyQnwnV1dc6g218pKBcA0si';
+const API_KEY = 'FdexWHTC26hHcrlvTj2gKYzQ5Lx3wr230lyFIJXaOfT7BqvZhtGhRNOl';
 const BASE_URL = 'https://api.pexels.com';
 
 const state = {
