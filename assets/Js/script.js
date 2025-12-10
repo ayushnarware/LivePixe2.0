@@ -9,8 +9,17 @@
 
 // --- CONFIGURATION ---
 const API_KEY = 'FdexWHTC26hHcrlvTj2gKYzQ5Lx3wr230lyFIJXaOfT7BqvZhtGhRNOl';
-const BASE_URL = 'https://api.pexels.com';
+// assets/Js/script.js - Line 12 replace karein
 
+let BASE_URL;
+
+if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') {
+    // Localhost ke liye: Extension ON rakhein
+    BASE_URL = 'https://api.pexels.com';
+} else {
+    // Live Site (GitHub) ke liye: Proxy use karein
+    BASE_URL = 'https://corsproxy.io/?url=https://api.pexels.com';
+}
 const state = {
     page: 1,
     query: 'India',
